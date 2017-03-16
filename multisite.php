@@ -149,22 +149,21 @@ function multisite_civicrm_post($op, $objectName, $objectId, &$objectRef) {
   }
 }
 /**
- * Implements ACLGroup hook().
+ * Implements selectWhereClause hook().
  *
- * aclGroup function returns a list of groups which are either children of the
- * domain group id or connected to the same organisation as the domain Group ID
+ * selectWhereClause restricts group selection to those which are either
+ * children of the domain group id or connected to the same organisation as the
+ * domain Group ID
  *
- * @param string $type
- * @param int $contactID
- * @param string $tableName
- * @param array $allGroups
- * @param array $currentGroups
+ * @param string $entity
+ * @param array $clauses
  */
-function multisite_civicrm_aclGroup($type, $contactID, $tableName, &$allGroups, &$currentGroups) {
-  // only process saved search
-  if ($tableName != 'civicrm_saved_search') {
+function multisite_civicrm_selectWhereClause($entity, &$clauses) {
+  // Only process groups, only without "view all contacts" permission.
+  if($entity != 'Group' || !(_multisite_is_permission()) || CRM_Core_Permission::check('view all contacts')) {
     return;
   }
+
   $isEnabled = civicrm_api('setting', 'getvalue', array(
       'version' => 3,
       'name' => 'is_enabled',
@@ -173,7 +172,6 @@ function multisite_civicrm_aclGroup($type, $contactID, $tableName, &$allGroups, 
   $groupID = _multisite_get_domain_group();
   // If multisite is not enabled, or if a domain group is not selected, then we default to all groups allowed
   if (!$isEnabled || !$groupID) {
-    $currentGroups = array_flip($allGroups);
     return;
   }
   if (!CRM_Core_Permission::check('list all groups in domain') && !_multisite_add_permissions($type)) {
@@ -181,25 +179,11 @@ function multisite_civicrm_aclGroup($type, $contactID, $tableName, &$allGroups, 
   }
   $currentGroups = _multisite_get_all_child_groups($groupID, FALSE);
   $currentGroups = array_merge($currentGroups, _multisite_get_domain_groups($groupID));
-  $disabledGroups = array();
-  $disabled = civicrm_api3('group', 'get', array(
-    'is_active' => 0,
-    'check_permissions' => FALSE,
-    'return' => 'id',
-    'sequential' => 1,
-    'options' => array('limit' => 0)));
-  foreach ($disabled['values'] as $group) {
-    $disabledGroups[] = $group['id'];
-  }
-  if (!empty($allGroups)) {
-    //all groups is empty if we really mean all groups but if a filter like 'is_disabled' is already applied
-    // it is populated, ajax calls from Manage Groups will leave empty but calls from New Mailing pass in a filtered list
-    $originalCurrentGroups = $currentGroups;
-    $currentGroups = array_intersect($currentGroups, array_flip($allGroups));
-    $currentGroups = array_merge($currentGroups, array_intersect($originalCurrentGroups, $disabledGroups));
-  }
-}
 
+  $groups_list = array_unique($currentGroups);
+
+  $clauses['id'][] = 'IN (' . implode(',', $groups_list) . ')';
+}
 /**
  *
  * @param string $type
@@ -529,6 +513,8 @@ function _multisite_alter_form_crm_group_form_edit($formName, &$form) {
  * @param array &$permissions
  */
 function multisite_civicrm_alterAPIPermissions($entity, $action, &$params, &$permissions) {
+  _multisite_is_permission(TRUE);
+
   $domain_id = CRM_Core_Config::domainID();
   if ($domain_id !== 1) {
     $entities = array('address', 'email', 'phone', 'website', 'im', 'loc_block',
@@ -557,4 +543,14 @@ function multisite_civicrm_alterAPIPermissions($entity, $action, &$params, &$per
       'edit all contacts in domain',
     );
   }
+}
+
+function _multisite_is_permission($check = NULL) {
+  static $checking = FALSE;
+
+  if(isset($check)) {
+    $checking = $check;
+  }
+
+  return $checking;
 }
