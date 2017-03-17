@@ -149,6 +149,58 @@ function multisite_civicrm_post($op, $objectName, $objectId, &$objectRef) {
   }
 }
 /**
+ * Implements ACLGroup hook().
+ *
+ * aclGroup function returns a list of groups which are either children of the
+ * domain group id or connected to the same organisation as the domain Group ID
+ *
+ * @param string $type
+ * @param int $contactID
+ * @param string $tableName
+ * @param array $allGroups
+ * @param array $currentGroups
+ */
+function multisite_civicrm_aclGroup($type, $contactID, $tableName, &$allGroups, &$currentGroups) {
+  // only process saved search
+  if ($tableName != 'civicrm_saved_search') {
+    return;
+  }
+  $isEnabled = civicrm_api('setting', 'getvalue', array(
+      'version' => 3,
+      'name' => 'is_enabled',
+      'group' => 'Multi Site Preferences')
+  );
+  $groupID = _multisite_get_domain_group();
+  // If multisite is not enabled, or if a domain group is not selected, then we default to all groups allowed
+  if (!$isEnabled || !$groupID) {
+    $currentGroups = array_flip($allGroups);
+    return;
+  }
+  if (!CRM_Core_Permission::check('list all groups in domain') && !_multisite_add_permissions($type)) {
+    return;
+  }
+  $currentGroups = _multisite_get_all_child_groups($groupID, FALSE);
+  $currentGroups = array_merge($currentGroups, _multisite_get_domain_groups($groupID));
+  $disabledGroups = array();
+  $disabled = civicrm_api3('group', 'get', array(
+    'is_active' => 0,
+    'check_permissions' => FALSE,
+    'return' => 'id',
+    'sequential' => 1,
+    'options' => array('limit' => 0)));
+  foreach ($disabled['values'] as $group) {
+    $disabledGroups[] = $group['id'];
+  }
+  if (!empty($allGroups)) {
+    //all groups is empty if we really mean all groups but if a filter like 'is_disabled' is already applied
+    // it is populated, ajax calls from Manage Groups will leave empty but calls from New Mailing pass in a filtered list
+    $originalCurrentGroups = $currentGroups;
+    $currentGroups = array_intersect($currentGroups, array_flip($allGroups));
+    $currentGroups = array_merge($currentGroups, array_intersect($originalCurrentGroups, $disabledGroups));
+  }
+}
+
+/**
  * Implements selectWhereClause hook().
  *
  * selectWhereClause restricts group selection to those which are either
