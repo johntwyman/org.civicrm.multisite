@@ -234,6 +234,11 @@ function multisite_civicrm_selectWhereClause($entity, &$clauses) {
 
   $groups_list = array_unique($currentGroups);
 
+  // Don't crash if there's no groups....
+  if(empty($groups_list)) {
+    $groups_list = array(0);
+  }
+
   $clauses['id'][] = 'IN (' . implode(',', $groups_list) . ')';
 }
 /**
