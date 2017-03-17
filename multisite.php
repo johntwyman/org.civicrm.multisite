@@ -611,3 +611,9 @@ function _multisite_is_permission($check = NULL) {
 
   return $checking;
 }
+
+function multisite_civicrm_apiWrappers(&$wrappers, $apiRequest) {
+  if ($apiRequest['entity'] == 'Mailing' && $apiRequest['action'] == 'getlist') {
+    $wrappers[] = new CRM_Multisite_MailingWrapper();
+  }
+}
