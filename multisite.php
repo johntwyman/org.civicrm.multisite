@@ -212,15 +212,15 @@ function multisite_civicrm_aclGroup($type, $contactID, $tableName, &$allGroups, 
  */
 function multisite_civicrm_selectWhereClause($entity, &$clauses) {
   // Only process groups, only without "view all contacts" permission.
-  if($entity != 'Group' || !(_multisite_is_permission()) || CRM_Core_Permission::check('view all contacts')) {
+  if ($entity != 'Group' || !(_multisite_is_permission()) || CRM_Core_Permission::check('view all contacts')) {
     return;
   }
 
   $isEnabled = civicrm_api('setting', 'getvalue', array(
-      'version' => 3,
-      'name' => 'is_enabled',
-      'group' => 'Multi Site Preferences')
-  );
+    'version' => 3,
+    'name' => 'is_enabled',
+    'group' => 'Multi Site Preferences',
+  ));
   $groupID = _multisite_get_domain_group();
   // If multisite is not enabled, or if a domain group is not selected, then we default to all groups allowed
   if (!$isEnabled || !$groupID) {
@@ -235,12 +235,13 @@ function multisite_civicrm_selectWhereClause($entity, &$clauses) {
   $groups_list = array_unique($currentGroups);
 
   // Don't crash if there's no groups....
-  if(empty($groups_list)) {
+  if (empty($groups_list)) {
     $groups_list = array(0);
   }
 
   $clauses['id'][] = 'IN (' . implode(',', $groups_list) . ')';
 }
+
 /**
  *
  * @param string $type
@@ -602,16 +603,26 @@ function multisite_civicrm_alterAPIPermissions($entity, $action, &$params, &$per
   }
 }
 
+/**
+ * Are we checking if we are in multisite permission
+ * @param bool $check
+ * @return bool
+ */
 function _multisite_is_permission($check = NULL) {
   static $checking = FALSE;
 
-  if(isset($check)) {
+  if (isset($check)) {
     $checking = $check;
   }
 
   return $checking;
 }
 
+/**
+ * Add in mailing API wrapper
+ * @param array $wrappers
+ * @param array $apiRequest
+ */
 function multisite_civicrm_apiWrappers(&$wrappers, $apiRequest) {
   if ($apiRequest['entity'] == 'Mailing' && $apiRequest['action'] == 'getlist') {
     $wrappers[] = new CRM_Multisite_MailingWrapper();
