@@ -59,6 +59,21 @@ function multisite_civicrm_managed(&$entities) {
 }
 
 /**
+ * Implements hook_civicrm_container().
+ */
+function multisite_civicrm_container(\Symfony\Component\DependencyInjection\ContainerBuilder $container) {
+  $container->setDefinition("cache.decendantGroups", new Symfony\Component\DependencyInjection\Definition(
+    'CRM_Utils_Cache_Interface',
+    [
+      [
+        'name' => 'descendant groups for org',
+        'type' => ['*memory*', 'SqlGroup', 'ArrayCache'],
+      ],
+    ]
+  ))->setFactory('CRM_Utils_Cache::create');
+}
+
+/**
  * Implements hook_civicrm_validate_form().
  *
  *  Make parents optional for administrators when
@@ -85,7 +100,6 @@ function multisite_civicrm_validateForm($formName, &$fields, &$files, &$form, &$
     $form->setElementError('parents', NULL);
   }
 }
-
 
 /**
  * Implements hook civicrm_pre().
@@ -173,7 +187,7 @@ function multisite_civicrm_aclGroup($type, $contactID, $tableName, &$allGroups, 
   $groupID = _multisite_get_domain_group();
   // If multisite is not enabled, or if a domain group is not selected, then we default to all groups allowed
   if (!$isEnabled || !$groupID) {
-    $currentGroups = array_flip($allGroups);
+    $currentGroups = array_keys($allGroups);
     return;
   }
   if (!CRM_Core_Permission::check('list all groups in domain') && !_multisite_add_permissions($type)) {
@@ -195,7 +209,7 @@ function multisite_civicrm_aclGroup($type, $contactID, $tableName, &$allGroups, 
     //all groups is empty if we really mean all groups but if a filter like 'is_disabled' is already applied
     // it is populated, ajax calls from Manage Groups will leave empty but calls from New Mailing pass in a filtered list
     $originalCurrentGroups = $currentGroups;
-    $currentGroups = array_intersect($currentGroups, array_flip($allGroups));
+    $currentGroups = array_intersect($currentGroups, array_keys($allGroups));
     $currentGroups = array_merge($currentGroups, array_intersect($originalCurrentGroups, $disabledGroups));
   }
 }
@@ -362,8 +376,9 @@ function multisite_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 function _multisite_get_all_child_groups($groupID, $includeParent = TRUE) {
   static $_cache = array();
 
+  $cache = Civi::cache('decendantGroups');
   if (!array_key_exists($groupID, $_cache)) {
-    $childGroups = &CRM_Core_BAO_Cache::getItem('descendant groups for an org', $groupID);
+    $childGroups = $cache->get($groupID);
 
     if (empty($childGroups)) {
       $childGroups = array();
@@ -399,7 +414,7 @@ AND    id IN ";
         }
       }
 
-      CRM_Core_BAO_Cache::setItem($childGroups, 'descendant groups for an org', $groupID);
+      $cache->set($groupID, $childGroups);
     }
     $_cache[$groupID] = $childGroups;
   }
