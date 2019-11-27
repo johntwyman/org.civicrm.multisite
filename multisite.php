@@ -2,6 +2,8 @@
 
 require_once 'multisite.civix.php';
 
+use CRM_Multisite_ExtensionUtil as E;
+
 /**
  * Implements hook_civicrm_config().
  */
@@ -290,8 +292,11 @@ function multisite_civicrm_aclWhereClause($type, &$tables, &$whereTables, &$cont
     $tables[$groupTableAlias] = $whereTables[$groupTableAlias] = "
       LEFT JOIN {$groupTable} $groupTableAlias ON contact_a.id = {$groupTableAlias}.contact_id
     ";
+    if (!empty($where)) {
+      $where .= ' AND ';
+    }
     $deletedContactClause = CRM_Core_Permission::check('access deleted contacts') ? '' : 'AND contact_a.is_deleted = 0';
-    $where = "(multisiteGroupTable.group_id IN (" . implode(',', $childOrganizations) . ") AND {$groupTableAlias}.status IN ('Added') $deletedContactClause)";
+    $where .= "(multisiteGroupTable.group_id IN (" . implode(',', $childOrganizations) . ") AND {$groupTableAlias}.status IN ('Added') $deletedContactClause)";
   }
 }
 
@@ -334,11 +339,10 @@ function multisite_civicrm_permissions(&$permissions) {
  * @param array $permissions
  */
 function multisite_civicrm_permission(&$permissions) {
-  $prefix = ts('CiviCRM Multisite') . ': ';
   $permissions = $permissions + array(
-    'view all contacts in domain' => $prefix . ts('view all contacts in domain'),
-    'edit all contacts in domain' => $prefix . ts('edit all contacts in domain'),
-    'list all groups in domain' => $prefix . ts('list all groups in domain'),
+    'view all contacts in domain' => E::ts('CiviCRM Multisite: view all contacts in domain'),
+    'edit all contacts in domain' => E::ts('CiviCRM Multisite: edit all contacts in domain'),
+    'list all groups in domain' => E::ts('CiviCRM Multisite: list all groups in domain'),
   );
 }
 
@@ -617,6 +621,11 @@ function multisite_civicrm_alterAPIPermissions($entity, $action, &$params, &$per
       'access CiviCRM',
       'edit all contacts in domain',
     );
+
+    $permissions['group_contact']['delete'] = array(
+      'access CiviCRM',
+      'edit all contacts in domain',
+    );
   }
 }
 
@@ -643,5 +652,27 @@ function _multisite_is_permission($check = NULL) {
 function multisite_civicrm_apiWrappers(&$wrappers, $apiRequest) {
   if ($apiRequest['entity'] == 'Mailing' && $apiRequest['action'] == 'getlist') {
     $wrappers[] = new CRM_Multisite_MailingWrapper();
+  }
+}
+
+/**
+ * Implements hook_civicrm_alterEntityRefParams().
+ *
+ * Alters Entity reference api params for MembershipType to ignore any domain_id filter
+ * So that the current behaviour continues
+ */
+function multisite_civicrm_alterEntityRefParams(&$props = [], $formName) {
+  if ($props['entity'] = 'MembershipType') {
+    if (!empty($props['api'])) {
+      if (!empty($props['api']['params'])) {
+        $props['api']['params']['domain_id'] = NULL;
+      }
+      else {
+        $props['api']['params'] = ['domain_id' => NULL];
+      }
+    }
+    else {
+      $props['api'] = ['params' => ['domain_id' => NULL]];
+    }
   }
 }
