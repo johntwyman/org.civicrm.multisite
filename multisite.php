@@ -668,7 +668,7 @@ function _multisite_is_permission($check = NULL) {
 }
 
 /**
- * Add in mailing API wrapper
+ * Add in mailing and membership API wrappers
  *
  * @param array $wrappers
  * @param array $apiRequest
@@ -678,7 +678,8 @@ function multisite_civicrm_apiWrappers(&$wrappers, $apiRequest) {
     $wrappers[] = new CRM_Multisite_MailingWrapper();
   }
 
-  if ($apiRequest['entity'] == 'Membership' && $apiRequest['action'] == 'getoptions') {
+  if ($apiRequest['entity'] == 'Membership' && $apiRequest['action'] == 'getoptions' && $apiRequest['params']['field'] == 'membership_type_id') {
+    Civi::log()->debug('Adding membership wrapper');
     $wrappers[] = new CRM_Multisite_MembershipWrapper();
   }
 }
