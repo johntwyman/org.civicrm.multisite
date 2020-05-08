@@ -13,9 +13,6 @@ class CRM_Multisite_MembershipWrapper implements API_Wrapper {
    * @return array
    */
   public function fromApiInput($apiRequest) {
-    if (!empty($apiRequest['params']['params']['domain_id'])) {
-      $apiRequest['params']['params']['domain_id'] = null;
-    }
     return $apiRequest;
   }
 
@@ -27,6 +24,7 @@ class CRM_Multisite_MembershipWrapper implements API_Wrapper {
    * @return array api result
    */
   public function toApiOutput($apiRequest, $result) {
+    Civi::log()->debug('Result: {result}', ['result' => $result]);
     return $result;
   }
 
