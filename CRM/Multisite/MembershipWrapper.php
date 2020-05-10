@@ -25,6 +25,8 @@ class CRM_Multisite_MembershipWrapper implements API_Wrapper {
    */
   public function toApiOutput($apiRequest, $result) {
     try {
+      Civi::log()->debug('Req: {req}', ['req' => $apiRequest);
+      Civi::log()->debug('Res: {res}', ['res' => $result);
       $types = civicrm_api3('MembershipType', 'get', [ 'domain_id' => null ]);
       if ($types['is_error'] == 0 && $types['count'] > 0) {
         $result['values'] = [];
